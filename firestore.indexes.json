@@ -1,0 +1,76 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "entries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "startDate",  "order": "ASCENDING"  },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "entries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "date",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "partnerLinks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "girlUid",    "order": "ASCENDING"  },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "partnerLinks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "inviteCode", "order": "ASCENDING"  },
+        { "fieldPath": "status",     "order": "ASCENDING"  }
+      ]
+    },
+    {
+      "collectionGroup": "partnerLinks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "boyUid",     "order": "ASCENDING"  },
+        { "fieldPath": "status",     "order": "ASCENDING"  }
+      ]
+    },
+    {
+      "collectionGroup": "educational_content",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "targetProfile", "order": "ASCENDING" },
+        { "fieldPath": "category",      "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "educational_content",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "targetProfile", "order": "ASCENDING" },
+        { "fieldPath": "order",         "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "survey_responses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "surveyId",   "order": "ASCENDING"  },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "specialist_resources",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category",   "order": "ASCENDING"  },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

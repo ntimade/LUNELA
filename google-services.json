@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "345823596055",
+    "project_id": "lunela-b80f3",
+    "storage_bucket": "lunela-b80f3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:345823596055:android:3169f97e42992a260b9652",
+        "android_client_info": {
+          "package_name": "com.company.appname"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "345823596055-5clij09ub1r1nsdc3rl247dlnrccb81i.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.company.appname",
+            "certificate_hash": "77e3d20c9cae66fd276900f63f333c9df3e2b006"
+          }
+        },
+        {
+          "client_id": "345823596055-aao3dl1g22nu6u29niekp0mbl9pk8k24.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUe7Zjv7hEexd7WTdh-Qs_yeVGYGVczv0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "345823596055-aao3dl1g22nu6u29niekp0mbl9pk8k24.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

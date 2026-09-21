@@ -1,0 +1,217 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() { return request.auth != null; }
+    function isOwner(uid) { return request.auth.uid == uid; }
+
+    function isAdmin() {
+      return isAuth()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.status == 'approved';
+    }
+
+    function isSpecialist() {
+      return isAuth()
+        && exists(/databases/$(database)/documents/specialists/$(request.auth.uid))
+        && get(/databases/$(database)/documents/specialists/$(request.auth.uid)).data.status == 'approved';
+    }
+
+    function isAdminOrSpecialist() { return isAdmin() || isSpecialist(); }
+    function hasFields(fields) { return request.resource.data.keys().hasAll(fields); }
+    function maxLen(field, n) { return request.resource.data[field].size() <= n; }
+
+    function isLinkedPartner(uid) {
+      return isAuth()
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.get('partnerUid', '') == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      allow read: if isAuth() && (isOwner(uid) || isAdminOrSpecialist() || isLinkedPartner(uid));
+      allow create: if isAuth() && isOwner(uid) && hasFields(['uid', 'email']) && maxLen('email', 254);
+      allow update: if isAuth() && (
+        (isOwner(uid)
+          && !('role' in request.resource.data.diff(resource.data).affectedKeys())
+          && !('uid'  in request.resource.data.diff(resource.data).affectedKeys()))
+        // Le partenaire actuellement lié peut rompre le lien depuis son côté
+        // (délier), sans quoi il garderait un accès en lecture indéfini via
+        // isLinkedPartner() même après avoir quitté le lien lui-même.
+        || (resource.data.get('partnerUid', '') == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['partnerUid'])
+          && request.resource.data.partnerUid == null)
+      );
+      allow delete: if isAdmin();
+
+      match /profile/{docId} {
+        allow read:  if isAuth() && (isOwner(uid) || isAdminOrSpecialist());
+        allow write: if isAuth() && isOwner(uid);
+      }
+    }
+
+    match /cycles/{uid}/entries/{entryId} {
+      allow read:   if isAuth() && (isOwner(uid) || isAdminOrSpecialist() || isLinkedPartner(uid));
+      allow create: if isAuth() && isOwner(uid) && hasFields(['id', 'startDate']) && maxLen('startDate', 10);
+      allow update: if isAuth() && isOwner(uid);
+      allow delete: if isAuth() && isOwner(uid);
+    }
+
+    match /cycle_settings/{uid} {
+      allow read:  if isAuth() && (isOwner(uid) || isAdminOrSpecialist() || isLinkedPartner(uid));
+      allow write: if isAuth() && isOwner(uid);
+    }
+
+    match /symptoms/{uid}/entries/{symId} {
+      allow read:   if isAuth() && (isOwner(uid) || isAdminOrSpecialist() || isLinkedPartner(uid));
+      allow create: if isAuth() && isOwner(uid) && hasFields(['id', 'date']);
+      allow update: if isAuth() && isOwner(uid);
+      allow delete: if isAuth() && isOwner(uid);
+    }
+
+    match /health_entries/{uid}/entries/{entryId} {
+      allow read:   if isAuth() && (isOwner(uid) || isAdminOrSpecialist() || isLinkedPartner(uid));
+      allow create: if isAuth() && isOwner(uid) && hasFields(['id', 'date']);
+      allow update: if isAuth() && isOwner(uid);
+      allow delete: if isAuth() && isOwner(uid);
+    }
+
+    match /quiz_progress/{uid} {
+      allow read:  if isAuth() && isOwner(uid);
+      allow write: if isAuth() && isOwner(uid);
+    }
+
+    match /badges/{uid}/items/{badgeId} {
+      allow read:   if isAuth() && isOwner(uid);
+      allow create: if isAuth() && isOwner(uid) && hasFields(['badgeId', 'earnedAt']);
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /educational_content/{docId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /partnerLinks/{linkId} {
+      allow read: if isAuth() && (
+        resource.data.girlUid == request.auth.uid ||
+        resource.data.boyUid  == request.auth.uid ||
+        isAdmin()
+      );
+      allow list: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.girlUid == request.auth.uid
+        && hasFields(['girlUid', 'inviteCode', 'status'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.boyUid == null;
+      allow update: if isAuth() && (
+        (resource.data.girlUid == request.auth.uid
+          && request.resource.data.status == 'revoked'
+          && resource.data.status != 'revoked') ||
+        (resource.data.boyUid == null
+          && resource.data.status == 'pending'
+          && request.resource.data.boyUid == request.auth.uid
+          && request.resource.data.status == 'active') ||
+        (resource.data.boyUid == request.auth.uid
+          && request.resource.data.boyUid == null
+          && request.resource.data.status == 'pending')
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /admins/{uid} {
+      allow read:   if isAuth() && (isOwner(uid) || isAdmin());
+      // Un uid déjà spécialiste ne peut pas aussi devenir admin (évite le cumul de rôles).
+      allow create: if isAuth() && isOwner(uid)
+        && hasFields(['uid', 'email', 'role'])
+        && request.resource.data.role == 'admin_pending'
+        && !exists(/databases/$(database)/documents/specialists/$(uid));
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /specialists/{uid} {
+      allow get:  if isAuth() && (isOwner(uid) || isAdminOrSpecialist());
+      allow list: if isAuth();
+      // Un uid déjà admin ne peut pas aussi devenir spécialiste (évite le cumul de rôles).
+      allow create: if isAuth() && isOwner(uid) && hasFields(['uid', 'email'])
+        && !exists(/databases/$(database)/documents/admins/$(uid));
+      allow update: if isAdmin() || (
+        isAuth() && isOwner(uid)
+        && !('role' in request.resource.data.diff(resource.data).affectedKeys())
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /surveys/{surveyId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /survey_responses/{responseId} {
+      allow read: if isAdminOrSpecialist()
+        || (isAuth() && resource.data.userId == request.auth.uid);
+      allow list: if isAuth();
+      allow create: if isAuth()
+        && hasFields(['surveyId', 'userId'])
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /contraceptives/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /quiz_questions/{id} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /specialist_resources/{docId} {
+      allow read: if isAdminOrSpecialist();
+      allow create: if isSpecialist()
+        && hasFields(['title', 'description', 'category'])
+        && maxLen('title', 100)
+        && maxLen('description', 500);
+      allow update: if isAdmin() || (
+        isSpecialist()
+        && resource.data.addedBy == get(/databases/$(database)/documents/specialists/$(request.auth.uid)).data.displayName
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /chats/{chatId}/messages/{msgId} {
+      allow read, write: if isAuth() && (
+        chatId.matches('.*' + request.auth.uid + '.*') || isAdminOrSpecialist()
+      );
+    }
+
+    match /forum_posts/{postId} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && hasFields(['title', 'text', 'authorId'])
+        && request.resource.data.authorId == request.auth.uid;
+      // Autorise uniquement l'incrémentation de replyCount par n'importe quel utilisateur connecté
+      allow update: if isAuth()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replyCount']);
+      allow delete: if isAdmin() || (isAuth() && resource.data.authorId == request.auth.uid);
+
+      match /replies/{replyId} {
+        allow read: if isAuth();
+        allow create: if isAuth()
+          && hasFields(['text', 'authorId'])
+          && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    match /forum_reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isAuth()
+        && hasFields(['postId', 'reporterId', 'reason'])
+        && request.resource.data.reporterId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,55 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function isAuth()   { return request.auth != null; }
+    function isOwner(uid) { return request.auth.uid == uid; }
+
+    function isImage()  {
+      return request.resource.contentType.matches('image/.*');
+    }
+    function isPdf()    {
+      return request.resource.contentType == 'application/pdf';
+    }
+    function maxSize(mb) {
+      return request.resource.size <= mb * 1024 * 1024;
+    }
+
+    // ── Avatars utilisateurs (/avatars/{uid}/{fileName}) ─────────────────────
+    match /avatars/{uid}/{fileName} {
+      // Lecture publique pour les avatars (affichage dans l'appli)
+      allow read:   if isAuth();
+      // Écriture : propriétaire, image < 2 Mo
+      allow write:  if isAuth() && isOwner(uid) && isImage() && maxSize(2);
+      allow delete: if isAuth() && isOwner(uid);
+    }
+
+    // ── Ressources professionnelles (/resources/{fileName}) ──────────────────
+    // Uploadées par les spécialistes approuvés (PDF ou image)
+    match /resources/{fileName} {
+      allow read:   if isAuth();
+      // Seul un spécialiste approuvé peut uploader (vérifié côté Firestore)
+      // La vérification du rôle se fait via Firestore dans l'app ;
+      // ici on restreint au minimum : auth + type + taille
+      allow create: if isAuth()
+        && (isImage() || isPdf())
+        && maxSize(10);
+      allow delete: if isAuth();
+      // Pas de mise à jour : supprimer et recréer
+      allow update: if false;
+    }
+
+    // ── Contenu éducatif (/educational/{docId}/{fileName}) ───────────────────
+    match /educational/{docId}/{fileName} {
+      allow read:   if isAuth();
+      // Écriture réservée aux admins (via Firebase Console ou Cloud Functions)
+      allow write:  if false;
+    }
+
+    // ── Bloc par défaut ───────────────────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
